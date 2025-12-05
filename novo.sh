@@ -1,16 +1,15 @@
 #!/bin/bash
 
-echo "=== INSTALAÇÃO ZABBIX SERVER ==="
+echo "=== ZABBIX 7.4 - UBUNTU 24.04 ==="
 
-apt-get update
-apt-get upgrade -y
+apt update
+apt upgrade -y
 
-echo "1. Instalando MySQL..."
-apt-get install -y mysql-server
+echo "1. MySQL..."
+apt install -y mysql-server
 systemctl start mysql
 systemctl enable mysql
 
-echo "2. Configurando MySQL..."
 mysql -u root << EOF
 ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'zabbix';
 CREATE USER 'zabbix'@'localhost' IDENTIFIED BY 'zabbix';
@@ -20,55 +19,54 @@ FLUSH PRIVILEGES;
 EXIT;
 EOF
 
-echo "3. Instalando Apache e PHP..."
-apt-get install -y apache2 php libapache2-mod-php php-mysql php-gd php-xml php-mbstring
+echo "2. Apache e PHP..."
+apt install -y apache2 php8.3 php8.3-mysql php8.3-gd php8.3-xml php8.3-mbstring php8.3-bcmath libapache2-mod-php8.3
 
-echo "4. Instalando Zabbix..."
-wget https://repo.zabbix.com/zabbix/6.0/ubuntu/pool/main/z/zabbix-release/zabbix-release_6.0-5+ubuntu$(lsb_release -rs)_all.deb
-dpkg -i zabbix-release_*.deb
-apt-get update
-rm -f zabbix-release_*.deb
+echo "3. Zabbix 7.4..."
+wget -q https://repo.zabbix.com/zabbix/7.4/release/ubuntu/pool/main/z/zabbix-release/zabbix-release_latest_7.4+ubuntu24.04_all.deb
+dpkg -i zabbix-release_latest_7.4+ubuntu24.04_all.deb
+apt update
 
-apt-get install -y \
+apt install -y \
     zabbix-server-mysql \
     zabbix-frontend-php \
     zabbix-apache-conf \
     zabbix-sql-scripts \
-    zabbix-agent \
+    zabbix-agent2 \
     zabbix-js
 
-echo "5. Importando banco de dados..."
+echo "4. Banco de dados..."
 zcat /usr/share/zabbix-sql-scripts/mysql/server.sql.gz | mysql -uzabbix -pzabbix zabbix
 
-echo "6. Configurando Zabbix..."
+echo "5. Configurando..."
 sed -i 's/^# DBPassword=/DBPassword=zabbix/' /etc/zabbix/zabbix_server.conf
 sed -i 's/^# DBHost=localhost/DBHost=localhost/' /etc/zabbix/zabbix_server.conf
-sed -i "s/^Hostname=Zabbix server/Hostname=$(hostname)/" /etc/zabbix/zabbix_agentd.conf
-sed -i "s/^;date.timezone =/date.timezone = America\/Sao_Paulo/" /etc/php/*/apache2/php.ini
+sed -i "s/^Hostname=Zabbix server/Hostname=$(hostname)/" /etc/zabbix/zabbix_agent2.conf
+sed -i "s/^;date.timezone =/date.timezone = America\/Sao_Paulo/" /etc/php/8.3/apache2/php.ini
 
-echo "7. Instalando phpMyAdmin..."
-apt-get install -y phpmyadmin
-ln -s /etc/phpmyadmin/apache.conf /etc/apache2/conf-available/phpmyadmin.conf
+echo "6. phpMyAdmin..."
+apt install -y phpmyadmin
+ln -sf /etc/phpmyadmin/apache.conf /etc/apache2/conf-available/phpmyadmin.conf
 a2enconf phpmyadmin
 
-echo "8. Configurando Apache..."
+echo "7. Apache..."
 a2enmod ssl rewrite
 a2ensite zabbix.conf
 systemctl restart apache2
 
-echo "9. Iniciando serviços..."
+echo "8. Serviços..."
 systemctl restart mysql
 systemctl restart zabbix-server
-systemctl restart zabbix-agent
+systemctl restart zabbix-agent2
 
-systemctl enable mysql zabbix-server zabbix-agent apache2
+systemctl enable mysql zabbix-server zabbix-agent2 apache2
 
-echo "=== INSTALAÇÃO CONCLUÍDA ==="
+echo "=== CONCLUÍDO ==="
 echo ""
-echo "Zabbix:     http://$(hostname -I | awk '{print $1}')/zabbix"
+echo "Zabbix 7.4: http://$(hostname -I | awk '{print $1}')/zabbix"
 echo "phpMyAdmin: http://$(hostname -I | awk '{print $1}')/phpmyadmin"
 echo ""
 echo "Credenciais:"
-echo "  MySQL Root:  usuário: root   senha: zabbix"
-echo "  MySQL Zabbix: usuário: zabbix senha: zabbix"
-echo "  Zabbix Web:  usuário: Admin  senha: zabbix"
+echo "  MySQL:    root/zabbix"
+echo "  Zabbix DB: zabbix/zabbix"
+echo "  Zabbix Web: Admin/zabbix"
